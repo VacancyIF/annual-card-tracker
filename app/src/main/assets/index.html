@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>年卡使用统计</title>
+<style>
+  :root{
+    --bg:#0b1020;
+    --bg2:#111834;
+    --card:rgba(255,255,255,.06);
+    --card-border:rgba(120,170,255,.18);
+    --txt:#e8eefc;
+    --sub:#93a3c8;
+    --cyan:#38e1ff;
+    --blue:#5b8cff;
+    --violet:#9a6bff;
+    --green:#3ddc97;
+    --orange:#ffb454;
+    --red:#ff6b81;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%,rgba(91,140,255,.18),transparent 60%),
+      radial-gradient(900px 500px at -10% 20%,rgba(56,225,255,.12),transparent 55%),
+      var(--bg);
+    color:var(--txt);
+    padding:18px 16px 40px;
+    max-width:560px;margin:0 auto;
+  }
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  header h1{font-size:20px;letter-spacing:.5px;}
+  header h1 span{background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .btn-ghost{
+    background:var(--card);border:1px solid var(--card-border);color:var(--sub);
+    border-radius:12px;padding:8px 12px;font-size:13px;cursor:pointer;
+  }
+  .btn-ghost:active{transform:scale(.96);}
+
+  .card{
+    background:var(--card);border:1px solid var(--card-border);
+    border-radius:var(--radius);padding:16px;margin-bottom:14px;
+    backdrop-filter:blur(10px);
+  }
+  .status-pill{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);
+    border:1px solid var(--card-border);border-radius:999px;padding:5px 11px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+  .dot.warn{background:var(--orange);}
+  .dot.off{background:var(--red);}
+
+  .hero{display:flex;flex-direction:column;gap:4px;}
+  .hero .big{font-size:34px;font-weight:700;letter-spacing:.5px;}
+  .hero .big small{font-size:15px;color:var(--sub);font-weight:400;margin-left:4px;}
+  .hero .sub{color:var(--sub);font-size:13px;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .stat .label{font-size:12px;color:var(--sub);margin-bottom:6px;}
+  .stat .val{font-size:19px;font-weight:600;}
+  .stat .val small{font-size:12px;color:var(--sub);font-weight:400;}
+  .stat .hint{font-size:11px;color:var(--sub);margin-top:3px;}
+
+  .section-title{font-size:14px;color:var(--sub);margin:18px 2px 10px;letter-spacing:.5px;}
+
+  /* 打卡区 */
+  .type-row{display:flex;gap:10px;margin:12px 0;}
+  .type-chip{
+    flex:1;text-align:center;padding:13px 0;border-radius:14px;cursor:pointer;
+    border:1px solid var(--card-border);background:rgba(255,255,255,.04);
+    color:var(--sub);font-size:15px;transition:.15s;user-select:none;
+  }
+  .type-chip.active{color:var(--txt);border-color:var(--cyan);background:rgba(56,225,255,.12);}
+  .type-chip.active.swim{border-color:var(--blue);background:rgba(91,140,255,.14);}
+  .type-chip.active.both{border-color:var(--violet);background:rgba(154,107,255,.16);}
+
+  .checkin-btn{
+    width:100%;padding:18px;border:none;border-radius:16px;cursor:pointer;
+    font-size:17px;font-weight:700;letter-spacing:1px;color:#06121f;
+    background:linear-gradient(135deg,var(--cyan),var(--blue));
+    box-shadow:0 8px 24px rgba(56,225,255,.25);
+    transition:.15s;
+  }
+  .checkin-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .checkin-btn:active{transform:scale(.98);}
+  .checkin-note{text-align:center;font-size:11px;color:var(--sub);margin-top:8px;}
+
+  /* 图表 */
+  canvas{width:100%;display:block;}
+  .chart-wrap{position:relative;margin-top:6px;}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--sub);margin-top:10px;flex-wrap:wrap;}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;}
+
+  /* 记录列表 */
+  .visit{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 2px;border-bottom:1px dashed rgba(255,255,255,.08);
+  }
+  .visit:last-child{border-bottom:none;}
+  .visit .date{font-size:14px;}
+  .visit .tags{display:flex;gap:6px;margin-top:4px;}
+  .tag{font-size:11px;padding:2px 8px;border-radius:8px;}
+  .tag.gym{background:rgba(56,225,255,.15);color:var(--cyan);}
+  .tag.swim{background:rgba(91,140,255,.18);color:var(--blue);}
+  .visit .del{background:none;border:none;color:var(--sub);font-size:18px;cursor:pointer;padding:6px;}
+  .visit .del:active{color:var(--red);}
+  .empty{color:var(--sub);text-align:center;padding:24px 0;font-size:13px;}
+
+  /* 设置弹层 */
+  .overlay{
+    position:fixed;inset:0;background:rgba(4,8,18,.7);backdrop-filter:blur(4px);
+    display:none;align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    width:100%;max-width:560px;background:var(--bg2);border-top-left-radius:22px;border-top-right-radius:22px;
+    padding:20px 18px 28px;max-height:82vh;overflow-y:auto;
+  }
+  .sheet h2{font-size:16px;margin-bottom:14px;}
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:6px;}
+  .field input,.field select{
+    width:100%;padding:12px;border-radius:12px;border:1px solid var(--card-border);
+    background:rgba(255,255,255,.05);color:var(--txt);font-size:15px;
+  }
+  .field input:focus{outline:none;border-color:var(--cyan);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .sheet-actions{display:flex;gap:10px;margin-top:18px;}
+  .sheet-actions button{flex:1;padding:14px;border-radius:14px;border:none;font-size:15px;cursor:pointer;}
+  .btn-primary{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06121f;font-weight:700;}
+  .btn-secondary{background:rgba(255,255,255,.08);color:var(--sub);}
+  .danger-zone{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:10px;flex-wrap:wrap;}
+  .btn-danger{background:rgba(255,107,129,.15);color:var(--red);border:1px solid rgba(255,107,129,.3);}
+
+  /* 确认弹层 */
+  .confirm-box{
+    width:86%;max-width:340px;background:var(--bg2);border-radius:20px;padding:22px 18px;text-align:center;
+  }
+  .confirm-box h3{font-size:16px;margin-bottom:10px;}
+  .confirm-box p{color:var(--sub);font-size:14px;line-height:1.6;margin-bottom:18px;}
+  .confirm-box .actions{display:flex;gap:10px;}
+  .confirm-box .actions button{flex:1;padding:13px;border-radius:13px;border:none;font-size:15px;cursor:pointer;}
+  .overlay.center{align-items:center;}
+
+  .toast{
+    position:fixed;left:50%;bottom:60px;transform:translateX(-50%);
+    background:rgba(20,28,50,.95);border:1px solid var(--card-border);color:var(--txt);
+    padding:10px 18px;border-radius:12px;font-size:13px;z-index:100;display:none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>年卡<span>使用统计</span></h1>
+  <button class="btn-ghost" id="btnSettings">⚙ 设置</button>
+</header>
+
+<!-- 状态与核心指标 -->
+<div class="card hero">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">—</span></div>
+    <div class="sub" id="dateRange">—</div>
+  </div>
+  <div class="big" style="margin-top:14px;"><span id="perVisitCost">—</span><small>元 / 次</small></div>
+  <div class="sub" id="perVisitHint">按到访次数折算的当前实际单次成本</div>
+</div>
+
+<div class="grid">
+  <div class="card stat">
+    <div class="label">累计到访</div>
+    <div class="val" id="totalVisits">0 <small>次</small></div>
+    <div class="hint" id="personHint">健身 0 · 游泳 0（人次）</div>
+  </div>
+  <div class="card stat">
+    <div class="label">预计单次成本</div>
+    <div class="val" id="projectedCost">—</div>
+    <div class="hint" id="projectedHint">按当前频率推算全周期</div>
+  </div>
+  <div class="card stat">
+    <div class="label">已省（对比单次原价）</div>
+    <div class="val" id="savedAmount">—</div>
+    <div class="hint" id="savedHint">—</div>
+  </div>
+  <div class="card stat">
+    <div class="label">有效期剩余</div>
+    <div class="val" id="daysLeft">—</div>
+    <div class="hint" id="daysElapsed">已过 0 天</div>
+  </div>
+</div>
+
+<!-- 打卡区 -->
+<div class="card">
+  <div class="section-title" style="margin-top:0;">本次前往</div>
+  <div class="type-row">
+    <div class="type-chip" data-type="gym">🏋️ 健身</div>
+    <div class="type-chip" data-type="swim">🏊 游泳</div>
+    <div class="type-chip" data-type="both">🤸 两项都做</div>
+  </div>
+  <button class="checkin-btn" id="btnCheckin">打 卡</button>
+  <div class="checkin-note">点击后需在弹窗中二次确认，防止误触</div>
+</div>
+
+<!-- 图表 -->
+<div class="section-title">趋势 · 月度到访次数</div>
+<div class="card chart-wrap"><canvas id="chartTrend" height="180"></canvas></div>
+
+<div class="section-title">项目人次占比</div>
+<div class="card chart-wrap">
+  <canvas id="chartPie" height="170"></canvas>
+  <div class="legend">
+    <span><i style="background:var(--cyan)"></i>健身</span>
+    <span><i style="background:var(--blue)"></i>游泳</span>
+  </div>
+</div>
+
+<div class="section-title">单次成本随到访下降</div>
+<div class="card chart-wrap"><canvas id="chartCost" height="160"></canvas></div>
+
+<!-- 记录列表 -->
+<div class="section-title">到访记录</div>
+<div class="card" id="visitList"></div>
+
+<!-- 设置弹层 -->
+<div class="overlay" id="settingsOverlay">
+  <div class="sheet">
+    <h2>年卡参数配置</h2>
+    <div class="field">
+      <label>卡片名称</label>
+      <input type="text" id="cfgName" placeholder="例如：健身游泳套卡">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>开卡日期</label>
+        <input type="date" id="cfgStart">
+      </div>
+      <div class="field">
+        <label>有效期（月）</label>
+        <input type="number" id="cfgMonths" min="1" max="36" step="1">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>年卡总价（元）</label>
+        <input type="number" id="cfgPrice" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label>单次原价（元）</label>
+        <input type="number" id="cfgSingle" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-secondary" id="btnCancelSettings">取消</button>
+      <button class="btn-primary" id="btnSaveSettings">保存配置</button>
+    </div>
+    <div class="danger-zone">
+      <button class="btn-ghost" id="btnExport">导出数据</button>
+      <button class="btn-ghost" id="btnImport">导入数据</button>
+      <button class="btn-ghost btn-danger" id="btnClear">清空全部记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 确认打卡弹层 -->
+<div class="overlay center" id="confirmOverlay">
+  <div class="confirm-box">
+    <h3>确认本次打卡？</h3>
+    <p id="confirmText"></p>
+    <div class="actions">
+      <button class="btn-secondary" id="btnCancelConfirm">再想想</button>
+      <button class="btn-primary" id="btnOkConfirm">确认打卡</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="importFile" accept="application/json" style="display:none">
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var STORE_KEY = "cardTracker.v1";
+
+  function todayStr(){
+    var d=new Date(); return fmtDate(d);
+  }
+  function fmtDate(d){
+    var y=d.getFullYear(),m=("0"+(d.getMonth()+1)).slice(-2),day=("0"+d.getDate()).slice(-2);
+    return y+"-"+m+"-"+day;
+  }
+  function defaultConfig(){
+    return {
+      name:"健身游泳套卡",
+      startDate: todayStr(),
+      validityMonths: 12,
+      cardPrice: 2000,
+      singlePrice: 80
+    };
+  }
+
+  var state = load();
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if(raw){
+        var obj = JSON.parse(raw);
+        return {
+          config: Object.assign(defaultConfig(), obj.config||{}),
+          visits: Array.isArray(obj.visits)?obj.visits:[]
+        };
+      }
+    }catch(e){}
+    return { config: defaultConfig(), visits: [] };
+  }
+  function save(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ toast("保存失败："+e.message); }
+  }
+
+  function parseDate(s){ var [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+  function addMonths(date, months){
+    var d=new Date(date.getTime());
+    var day=d.getDate();
+    d.setMonth(d.getMonth()+months);
+    if(d.getDate()<day) d.setDate(0);
+    return d;
+  }
+  function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+  function fmtMoney(n){ return (Math.round(n*100)/100).toFixed(2); }
+  function toast(msg){
+    var t=document.getElementById("toast");
+    t.textContent=msg; t.style.display="block";
+    clearTimeout(t._timer);
+    t._timer=setTimeout(function(){t.style.display="none";},1800);
+  }
+
+  function compute(){
+    var c=state.config, visits=state.visits;
+    var start=parseDate(c.startDate);
+    var end=addMonths(start, Number(c.validityMonths)||12);
+    var now=new Date(); var today=fmtDate(now);
+
+    var totalVisits=visits.length;
+    var gym=0, swim=0, both=0;
+    visits.forEach(function(v){
+      if(v.gym) gym++;
+      if(v.swim) swim++;
+      if(v.gym&&v.swim) both++;
+    });
+    var personTimes=gym+swim;
+
+    var costPerVisit = totalVisits>0 ? Number(c.cardPrice)/totalVisits : null;
+    var costPerPerson = personTimes>0 ? Number(c.cardPrice)/personTimes : null;
+
+    var totalDays=daysBetween(start,end);
+    var elapsed=daysBetween(start,now);
+    elapsed=Math.max(0,elapsed);
+    var left=daysBetween(end,now);
+    var status;
+    if(now<start) status="notstarted";
+    else if(left<0) status="expired";
+    else status="active";
+
+    var projectedTotal=null;
+    if(elapsed>0 && totalVisits>0){
+      projectedTotal = totalVisits/elapsed*totalDays;
+    }
+    var projectedCost = projectedTotal? Number(c.cardPrice)/projectedTotal : null;
+
+    var originalSpent = personTimes*Number(c.singlePrice);
+    var saved = originalSpent - Number(c.cardPrice);
+
+    return {
+      start:start, end:end, now:now, today:today,
+      totalVisits:totalVisits, gym:gym, swim:swim, both:both, personTimes:personTimes,
+      costPerVisit:costPerVisit, costPerPerson:costPerPerson,
+      totalDays:totalDays, elapsed:elapsed, left:left, status:status,
+      projectedTotal:projectedTotal, projectedCost:projectedCost,
+      originalSpent:originalSpent, saved:saved
+    };
+  }
+
+  var selectedType=null;
+
+  function render(){
+    var s=compute(), c=state.config;
+
+    var dot=document.getElementById("statusDot"), st=document.getElementById("statusText");
+    if(s.status==="active"){ dot.className="dot"; st.textContent="生效中"; }
+    else if(s.status==="notstarted"){ dot.className="dot warn"; st.textContent="未生效"; }
+    else { dot.className="dot off"; st.textContent="已过期"; }
+
+    document.getElementById("dateRange").textContent =
+      fmtDate(s.start)+" ~ "+fmtDate(s.end);
+
+    document.getElementById("perVisitCost").textContent =
+      s.costPerVisit!=null? fmtMoney(s.costPerVisit) : "—";
+    document.getElementById("perVisitHint").textContent =
+      "按到访次数折算 · 若按人次折算为 "+(s.costPerPerson!=null?fmtMoney(s.costPerPerson):"—")+" 元/人次";
+
+    document.getElementById("totalVisits").innerHTML = s.totalVisits+" <small>次</small>";
+    document.getElementById("personHint").textContent =
+      "健身 "+s.gym+" · 游泳 "+s.swim+" · 两项都做 "+s.both;
+
+    document.getElementById("projectedCost").textContent =
+      s.projectedCost!=null? fmtMoney(s.projectedCost)+" 元" : "—";
+    document.getElementById("projectedHint").textContent =
+      s.projectedTotal!=null? "预计全周期到访 "+Math.round(s.projectedTotal)+" 次" : "到访后自动推算";
+
+    document.getElementById("savedAmount").textContent =
+      (s.saved>=0?"+":"")+fmtMoney(s.saved)+" 元";
+    document.getElementById("savedHint").textContent =
+      "原价合计 "+fmtMoney(s.originalSpent)+" 元，卡价 "+fmtMoney(c.cardPrice)+" 元";
+
+    document.getElementById("daysLeft").innerHTML =
+      s.status==="expired" ? "已过期" : (s.status==="notstarted"?"未开始": Math.max(0,s.left)+" <small>天</small>");
+    document.getElementById("daysElapsed").textContent = "已过 "+s.elapsed+" 天 / 共 "+s.totalDays+" 天";
+
+    renderList();
+    drawTrend(s);
+    drawPie(s);
+    drawCost(s);
+  }
+
+  function renderList(){
+    var box=document.getElementById("visitList");
+    if(state.visits.length===0){
+      box.innerHTML='<div class="empty">还没有到访记录，点上方按钮打卡吧</div>';
+      return;
+    }
+    var arr=state.visits.slice().sort(function(a,b){ return b.date<a.date?-1:b.date>a.date?1:b.ts-a.ts; });
+    box.innerHTML="";
+    arr.forEach(function(v){
+      var row=document.createElement("div"); row.className="visit";
+      var tags=[];
+      if(v.gym) tags.push('<span class="tag gym">健身</span>');
+      if(v.swim) tags.push('<span class="tag swim">游泳</span>');
+      row.innerHTML='<div><div class="date">'+v.date+' '+(v.time||"")+'</div><div class="tags">'+tags.join("")+'</div></div>';
+      var del=document.createElement("button"); del.className="del"; del.textContent="🗑"; del.title="删除该条";
+      del.onclick=function(){ confirmDelete(v.id); };
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  function setupCanvas(id){
+    var cv=document.getElementById(id);
+    var dpr=window.devicePixelRatio||1;
+    var w=cv.clientWidth, h=Number(cv.getAttribute("height"));
+    cv.width=w*dpr; cv.height=h*dpr;
+    var ctx=cv.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {ctx:ctx,w:w,h:h};
+  }
+
+  function drawTrend(s){
+    var {ctx,w,h}=setupCanvas("chartTrend");
+    ctx.clearRect(0,0,w,h);
+    var months={};
+    state.visits.forEach(function(v){
+      var k=v.date.slice(0,7); months[k]=(months[k]||0)+1;
+    });
+    var keys=Object.keys(months).sort();
+    if(keys.length===0){ emptyHint(ctx,w,h,"暂无数据"); return; }
+    var max=Math.max.apply(null,keys.map(function(k){return months[k];}));
+    var pad=28, bw=Math.min(34,(w-pad*2)/keys.length-10);
+    var base=h-24;
+    keys.forEach(function(k,i){
+      var val=months[k];
+      var bh=(base-10)*(val/max);
+      var x=pad+i*((w-pad*2)/keys.length)+((w-pad*2)/keys.length-bw)/2;
+      var grad=ctx.createLinearGradient(0,base-bh,0,base);
+      grad.addColorStop(0,"#38e1ff"); grad.addColorStop(1,"#5b8cff");
+      ctx.fillStyle=grad;
+      roundRect(ctx,x,base-bh,bw,bh,6); ctx.fill();
+      ctx.fillStyle="#93a3c8"; ctx.font="10px sans-serif"; ctx.textAlign="center";
+      ctx.fillText(k.slice(5)+"月",x+bw/2,h-8);
+      ctx.fillStyle="#e8eefc";
+      ctx.fillText(val,x+bw/2,base-bh-6);
+    });
+  }
+
+  function drawPie(s){
+    var {ctx,w,h}=setupCanvas("chartPie");
+    ctx.clearRect(0,0,w,h);
+    if(s.personTimes===0){ emptyHint(ctx,w,h,"暂无数据"); return; }
+    var cx=w/2, cy=h/2, r=Math.min(w,h)/2-20;
+    var segs=[{v:s.gym,color:"#38e1ff"},{v:s.swim,color:"#5b8cff"}];
+    var start=-Math.PI/2;
+    segs.forEach(function(seg){
+      if(seg.v===0) return;
+      var ang=seg.v/s.personTimes*Math.PI*2;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,start,start+ang);
+      ctx.closePath();
+      ctx.fillStyle=seg.color; ctx.fill();
+      start+=ang;
+    });
+    ctx.beginPath(); ctx.arc(cx,cy,r*0.55,0,Math.PI*2);
+    ctx.fillStyle="#111834"; ctx.fill();
+    ctx.fillStyle="#e8eefc"; ctx.textAlign="center";
+    ctx.font="16px sans-serif"; ctx.fillText(s.personTimes,cx,cy+2);
+    ctx.fillStyle="#93a3c8"; ctx.font="10px sans-serif"; ctx.fillText("总人次",cx,cy+18);
+  }
+
+  function drawCost(s){
+    var {ctx,w,h}=setupCanvas("chartCost");
+    ctx.clearRect(0,0,w,h);
+    if(state.visits.length===0){ emptyHint(ctx,w,h,"暂无数据"); return; }
+    var c=Number(state.config.cardPrice);
+    if(c<=0){ emptyHint(ctx,w,h,"请先在设置中填写年卡总价"); return; }
+    var n=state.visits.length;
+    var pad=30, base=h-22, top=14;
+    var maxV=c/1;
+    ctx.strokeStyle="rgba(255,255,255,.08)";
+    ctx.beginPath(); ctx.moveTo(pad,base); ctx.lineTo(w-8,base); ctx.stroke();
+    var prev=null;
+    for(var i=1;i<=n;i++){
+      var x=pad+(w-pad-8)*(i-1)/(n-1||1);
+      var y=base-(base-top)*(c/i)/maxV;
+      if(prev){
+        ctx.strokeStyle="#9a6bff"; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(prev.x,prev.y); ctx.lineTo(x,y); ctx.stroke();
+      }
+      ctx.fillStyle="#9a6bff"; ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+      prev={x:x,y:y};
+    }
+    ctx.fillStyle="#93a3c8"; ctx.font="10px sans-serif"; ctx.textAlign="left";
+    ctx.fillText("1次",pad,h-8);
+    ctx.textAlign="right"; ctx.fillText(n+"次",w-8,h-8);
+  }
+
+  function roundRect(ctx,x,y,w,h,r){
+    if(h<r)r=h;
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+  function emptyHint(ctx,w,h,msg){
+    ctx.fillStyle="#93a3c8"; ctx.font="12px sans-serif"; ctx.textAlign="center";
+    ctx.fillText(msg,w/2,h/2);
+  }
+
+  var chips=document.querySelectorAll(".type-chip");
+  chips.forEach(function(ch){
+    ch.onclick=function(){
+      chips.forEach(function(x){x.classList.remove("active");});
+      ch.classList.add("active");
+      selectedType=ch.dataset.type;
+    };
+  });
+
+  var confirming=false;
+  document.getElementById("btnCheckin").onclick=function(){
+    if(confirming) return;
+    if(!selectedType){ toast("请先选择：健身 / 游泳 / 两项都做"); return; }
+    var label=selectedType==="gym"?"健身":selectedType==="swim"?"游泳":"健身 + 游泳";
+    document.getElementById("confirmText").innerHTML=
+      "日期："+todayStr()+"<br>项目："+label+"<br>确认记入本次到访？";
+    document.getElementById("confirmOverlay").classList.add("show");
+  };
+  document.getElementById("btnCancelConfirm").onclick=function(){
+    document.getElementById("confirmOverlay").classList.remove("show");
+  };
+  document.getElementById("btnOkConfirm").onclick=function(){
+    var now=new Date();
+    var time=("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
+    var rec={
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      date: todayStr(),
+      time: time,
+      gym: selectedType!=="swim",
+      swim: selectedType!=="gym",
+      ts: now.getTime()
+    };
+    state.visits.push(rec);
+    save();
+    document.getElementById("confirmOverlay").classList.remove("show");
+    confirming=true;
+    var btn=document.getElementById("btnCheckin");
+    btn.disabled=true; btn.textContent="已记录 ✓";
+    setTimeout(function(){ btn.disabled=false; btn.textContent="打 卡"; confirming=false; },1500);
+    render();
+    toast("打卡成功");
+  };
+
+  function confirmDelete(id){
+    var ov=document.getElementById("confirmOverlay");
+    document.getElementById("confirmText").textContent="确定删除这条到访记录吗？此操作不可撤销。";
+    document.getElementById("confirmOverlay").classList.add("show");
+    document.getElementById("btnOkConfirm").onclick=function(){
+      state.visits=state.visits.filter(function(v){return v.id!==id;});
+      save();
+      ov.classList.remove("show");
+      restoreConfirmHandler();
+      render();
+      toast("已删除");
+    };
+  }
+  function restoreConfirmHandler(){
+    document.getElementById("btnOkConfirm").onclick=function(){
+      var now=new Date();
+      var time=("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
+      var rec={
+        id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+        date: todayStr(), time: time,
+        gym: selectedType!=="swim", swim: selectedType!=="gym",
+        ts: now.getTime()
+      };
+      state.visits.push(rec); save();
+      document.getElementById("confirmOverlay").classList.remove("show");
+      confirming=true;
+      var btn=document.getElementById("btnCheckin");
+      btn.disabled=true; btn.textContent="已记录 ✓";
+      setTimeout(function(){ btn.disabled=false; btn.textContent="打 卡"; confirming=false; },1500);
+      render(); toast("打卡成功");
+    };
+  }
+
+  var ov=document.getElementById("settingsOverlay");
+  document.getElementById("btnSettings").onclick=function(){
+    var c=state.config;
+    document.getElementById("cfgName").value=c.name;
+    document.getElementById("cfgStart").value=c.startDate;
+    document.getElementById("cfgMonths").value=c.validityMonths;
+    document.getElementById("cfgPrice").value=c.cardPrice;
+    document.getElementById("cfgSingle").value=c.singlePrice;
+    ov.classList.add("show");
+  };
+  document.getElementById("btnCancelSettings").onclick=function(){ ov.classList.remove("show"); };
+  document.getElementById("btnSaveSettings").onclick=function(){
+    var start=document.getElementById("cfgStart").value;
+    if(!start){ toast("请选择开卡日期"); return; }
+    state.config={
+      name: document.getElementById("cfgName").value.trim()||"健身游泳套卡",
+      startDate: start,
+      validityMonths: Math.max(1,Number(document.getElementById("cfgMonths").value)||12),
+      cardPrice: Math.max(0,Number(document.getElementById("cfgPrice").value)||0),
+      singlePrice: Math.max(0,Number(document.getElementById("cfgSingle").value)||0)
+    };
+    save(); ov.classList.remove("show"); render(); toast("配置已保存");
+  };
+
+  document.getElementById("btnClear").onclick=function(){
+    if(confirm("确定清空全部到访记录吗？配置会保留。")){
+      state.visits=[]; save(); render(); toast("记录已清空");
+    }
+  };
+
+  document.getElementById("btnExport").onclick=function(){
+    var blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="card-tracker-backup.json";
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+  document.getElementById("btnImport").onclick=function(){
+    document.getElementById("importFile").click();
+  };
+  document.getElementById("importFile").onchange=function(e){
+    var f=e.target.files[0]; if(!f) return;
+    var reader=new FileReader();
+    reader.onload=function(){
+      try{
+        var obj=JSON.parse(reader.result);
+        if(obj.config) state.config=Object.assign(defaultConfig(),obj.config);
+        if(Array.isArray(obj.visits)) state.visits=obj.visits;
+        save(); render(); toast("导入成功");
+      }catch(err){ toast("文件格式错误"); }
+    };
+    reader.readAsText(f);
+    e.target.value="";
+  };
+
+  ov.addEventListener("click",function(e){ if(e.target===ov) ov.classList.remove("show"); });
+
+  window.addEventListener("resize",render);
+  render();
+})();
+</script>
+</body>
+</html>
