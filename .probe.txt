@@ -1,3 +1,0 @@
-line1 "quote"
-line2 中文测试
-line3 🏊 emoji
